@@ -20,20 +20,29 @@ router.post("/registrar", async (req, res) => {
   });
 });
 
-// Rota de login
 router.post("/login", async (req, res) => {
   const { email, senha } = req.body;
-  // Simulação de login
-  if (email === "master@salgados.com" && senha === "123456") {
+
+  // Simulação de banco de dados (exemplo de login master)
+  if (email === "ld388571@gmail.com" && senha === "0504") {
     return res.json({
       sucesso: true,
       tipo: "master",
       id: 1,
-      nome: "Tia Cida"
+      nome: "Lucas Borja"
     });
   }
+
+  // Caso credenciais erradas
+  return res.status(401).json({
+    sucesso: false,
+    mensagem: "E-mail ou senha incorretos"
+  });
+});
+
 
   res.status(401).json({ sucesso: false, mensagem: "Credenciais inválidas" });
 });
 
 export default router;
+
