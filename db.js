@@ -9,7 +9,6 @@ export const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Loga no console se conectou
 pool
   .connect()
   .then(() => console.log("✅ Conectado ao banco Neon com sucesso!"))
