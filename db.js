@@ -9,8 +9,8 @@ export const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Teste de conexão (só loga se der certo)
+// Loga no console se conectou
 pool
   .connect()
-  .then(() => console.log("✅ Conectado ao PostgreSQL com sucesso!"))
+  .then(() => console.log("✅ Conectado ao banco Neon com sucesso!"))
   .catch((err) => console.error("❌ Erro ao conectar ao banco:", err.message));
