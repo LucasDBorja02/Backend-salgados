@@ -93,26 +93,36 @@ router.post("/", async (req, res) => {
  * GET /pedidos/:id
  * Detalha um pedido com itens
  */
-router.get("/:id", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const { id } = req.params;
-    const pedido = await pool.query("SELECT * FROM pedidos WHERE id=$1", [id]);
-    if (pedido.rows.length === 0)
-      return res.status(404).json({ error: "Pedido não encontrado" });
+    // 1️⃣ Busca todos os pedidos com dados do cliente
+    const pedidosResult = await pool.query(`
+      SELECT p.*, u.nome AS cliente_nome, u.telefone, u.whatsapp
+      FROM pedidos p
+      JOIN usuarios u ON p.usuario_id = u.id
+      ORDER BY p.id DESC
+    `);
 
-    const itens = await pool.query(
-      `SELECT i.*, p.nome, p.preco, p.imagem_url 
-       FROM itens_pedido i 
-       JOIN produtos p ON i.produto_id = p.id 
-       WHERE i.pedido_id=$1`,
-      [id]
-    );
+    const pedidos = pedidosResult.rows;
 
-    res.json({ pedido: pedido.rows[0], itens: itens.rows });
+    // 2️⃣ Para cada pedido, busca os itens associados
+    for (const pedido of pedidos) {
+      const itensResult = await pool.query(`
+        SELECT i.*, pr.nome AS produto_nome, pr.preco
+        FROM itens_pedido i
+        JOIN produtos pr ON i.produto_id = pr.id
+        WHERE i.pedido_id = $1
+      `, [pedido.id]);
+
+      pedido.itens = itensResult.rows;
+    }
+
+    res.json(pedidos);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 /**
  * PUT /pedidos/:id/status
