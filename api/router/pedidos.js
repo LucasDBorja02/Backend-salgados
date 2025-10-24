@@ -15,8 +15,73 @@ router.get("/", async (req, res) => {
       JOIN usuarios u ON p.usuario_id = u.id
       ORDER BY p.id DESC
     `);
-    res.json(result.rows);
+
+    const pedidos = result.rows;
+
+    // 🔹 Para cada pedido, adiciona seus itens
+    for (const pedido of pedidos) {
+      const itensResult = await pool.query(
+        `
+        SELECT i.*, pr.nome AS produto_nome, pr.preco
+        FROM itens_pedido i
+        JOIN produtos pr ON i.produto_id = pr.id
+        WHERE i.pedido_id = $1
+        `,
+        [pedido.id]
+      );
+      pedido.itens = itensResult.rows;
+    }
+
+    res.json(pedidos);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /pedidos/:id
+ * Retorna um pedido específico com seus itens
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔹 Busca o pedido com dados do cliente
+    const pedidoResult = await pool.query(
+      `
+      SELECT p.*, u.nome AS cliente_nome, u.telefone, u.whatsapp
+      FROM pedidos p
+      JOIN usuarios u ON p.usuario_id = u.id
+      WHERE p.id = $1
+      `,
+      [id]
+    );
+
+    if (pedidoResult.rows.length === 0) {
+      return res.status(404).json({ error: "Pedido não encontrado" });
+    }
+
+    const pedido = pedidoResult.rows[0];
+
+    // 🔹 Busca os itens do pedido
+    const itensResult = await pool.query(
+      `
+      SELECT i.*, pr.nome AS produto_nome, pr.preco
+      FROM itens_pedido i
+      JOIN produtos pr ON i.produto_id = pr.id
+      WHERE i.pedido_id = $1
+      `,
+      [id]
+    );
+
+    pedido.itens = itensResult.rows;
+
+    res.json({
+      pedido,
+      itens: pedido.itens
+    });
+  } catch (err) {
+    console.error("❌ Erro ao buscar pedido detalhado:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -51,30 +116,36 @@ router.post("/", async (req, res) => {
       periodo_entrega,
       entrega,
       endereco_entrega,
-      itens
+      itens,
     } = req.body;
 
     await client.query("BEGIN");
 
-    // Calcula total
+    // 🔹 Calcula total
     let total = 0;
     for (const item of itens) {
       total += item.preco * item.quantidade;
     }
 
+    // 🔹 Insere o pedido
     const pedido = await client.query(
-      `INSERT INTO pedidos 
+      `
+      INSERT INTO pedidos 
       (usuario_id, data_entrega, periodo_entrega, entrega, endereco_entrega, total) 
-      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
+      `,
       [usuario_id, data_entrega, periodo_entrega, entrega, endereco_entrega, total]
     );
 
     const pedidoId = pedido.rows[0].id;
 
+    // 🔹 Insere itens do pedido
     for (const item of itens) {
       await client.query(
-        `INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, subtotal)
-         VALUES ($1,$2,$3,$4)`,
+        `
+        INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, subtotal)
+        VALUES ($1,$2,$3,$4)
+        `,
         [pedidoId, item.id, item.quantidade, item.preco * item.quantidade]
       );
     }
@@ -88,41 +159,6 @@ router.post("/", async (req, res) => {
     client.release();
   }
 });
-
-/**
- * GET /pedidos/:id
- * Detalha um pedido com itens
- */
-router.get("/", async (req, res) => {
-  try {
-    // 1️⃣ Busca todos os pedidos com dados do cliente
-    const pedidosResult = await pool.query(`
-      SELECT p.*, u.nome AS cliente_nome, u.telefone, u.whatsapp
-      FROM pedidos p
-      JOIN usuarios u ON p.usuario_id = u.id
-      ORDER BY p.id DESC
-    `);
-
-    const pedidos = pedidosResult.rows;
-
-    // 2️⃣ Para cada pedido, busca os itens associados
-    for (const pedido of pedidos) {
-      const itensResult = await pool.query(`
-        SELECT i.*, pr.nome AS produto_nome, pr.preco
-        FROM itens_pedido i
-        JOIN produtos pr ON i.produto_id = pr.id
-        WHERE i.pedido_id = $1
-      `, [pedido.id]);
-
-      pedido.itens = itensResult.rows;
-    }
-
-    res.json(pedidos);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 /**
  * PUT /pedidos/:id/status
@@ -166,6 +202,5 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 export default router;
