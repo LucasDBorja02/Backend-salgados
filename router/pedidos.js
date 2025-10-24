@@ -10,7 +10,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT p.*, u.nome AS cliente_nome, u.telefone, u.whatsapp 
+      SELECT p.*, u.nome AS cliente_nome, u.telefone, u.whatsapp
       FROM pedidos p
       JOIN usuarios u ON p.usuario_id = u.id
       ORDER BY p.id DESC
@@ -133,5 +133,29 @@ router.put("/:id/status", async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+/**
+ * DELETE /pedidos/:id
+ * Exclui um pedido (admin)
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Apaga itens do pedido primeiro (evita FK constraint)
+    await pool.query("DELETE FROM itens_pedido WHERE pedido_id=$1", [id]);
+
+    // Apaga o pedido
+    const result = await pool.query("DELETE FROM pedidos WHERE id=$1", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Pedido não encontrado" });
+    }
+
+    res.json({ message: "Pedido excluído com sucesso!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 export default router;
