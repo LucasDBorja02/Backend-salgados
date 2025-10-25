@@ -55,7 +55,7 @@ router.post("/login", async (req, res) => {
   try {
     const { email, senha } = req.body;
 
-    // Admin fixo (master)
+    // 🔐 Admin fixo
     if (email === "ld388571@gmail.com" && senha === "0504") {
       return res.json({
         sucesso: true,
@@ -65,19 +65,20 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Usuários comuns do banco
-    const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
-    if (usuario.rows.length === 0) {
+    // 🔍 Verifica se o e-mail existe
+    const userQuery = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+    if (userQuery.rows.length === 0) {
       return res.status(404).json({ sucesso: false, mensagem: "E-mail não encontrado" });
     }
-    
-    const senhaCorreta = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
-    if (senhaCorreta.rows.length === 0) {
+
+    // 🔑 Verifica a senha
+    const senhaQuery = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
+    if (senhaQuery.rows.length === 0) {
       return res.status(401).json({ sucesso: false, mensagem: "Senha incorreta" });
     }
 
-
-    const usuario = result.rows[0];
+    // 🟢 Login bem-sucedido
+    const usuario = senhaQuery.rows[0];
 
     return res.json({
       sucesso: true,
@@ -85,10 +86,12 @@ router.post("/login", async (req, res) => {
       id: usuario.id,
       nome: usuario.nome,
     });
+
   } catch (err) {
     console.error("❌ Erro no login:", err.message);
     res.status(500).json({ erro: "Erro interno no login." });
   }
 });
+
 
 export default router;
