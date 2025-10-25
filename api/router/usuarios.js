@@ -66,11 +66,16 @@ router.post("/login", async (req, res) => {
     }
 
     // Usuários comuns do banco
-    const result = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ sucesso: false, mensagem: "E-mail ou senha incorretos" });
+    const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+    if (usuario.rows.length === 0) {
+      return res.status(404).json({ sucesso: false, mensagem: "E-mail não encontrado" });
     }
+    
+    const senhaCorreta = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
+    if (senhaCorreta.rows.length === 0) {
+      return res.status(401).json({ sucesso: false, mensagem: "Senha incorreta" });
+    }
+
 
     const usuario = result.rows[0];
 
